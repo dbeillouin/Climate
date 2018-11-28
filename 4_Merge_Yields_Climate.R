@@ -1,51 +1,49 @@
-########### May 2018 - Tamara Ben Ari
-######## This code merges all climate obs and similarly with no CC together with yield and anomaly data into one single file
 
 rm(list=ls())
 
-############# I/ DATALOAD  ##############################################################################
- Climate_Detrend <-  read.csv2("~/Documents/CLAND/Files_txt/Climate_Detrend.csv")
- Yield_anomalies <- read.csv2("~/Documents/CLAND/Files_txt/Yield_anomalies.csv") %>%
-                    rename(new_name = old_name) 
-  
- 
-# I/ load data 
-path              <- "/Users/Damien_Beillouin/Documents/Stage_JULIA/codes_julia"
-Resultfolder      <- "/Users/Damien_Beillouin/Documents/Stage_JULIA/codes_julia/Results"
-
-All_crops <- read.table(paste0(path,"/Files_txt/0_all_crops_names_clean.txt"),header=TRUE , sep=";", dec=".", na.strings="NA")
-crop_name <- All_crops$crop_type
-
-#II/ create a function for merging
- FUN_MERGE<-function(Crop, method){
-
-# Find and load climate data
-   CLIM  <- dir(Resultfolder, pattern = "LOBELL",full.names=FALSE) 
-   CLIM  <- Filter(function(x) grepl(Crop, x), CLIM)
-
-  ifelse(method=="ALL_month",CLIM<-CLIM[2],CLIM<-CLIM[1])     # choose climatic file corresponding to method ( ALL_month or Lobell) 
-
-    CLIMAT     <-read.csv(paste0(Resultfolder,"/",CLIM), header=TRUE, sep=" ", dec=",", na.strings="NA")%>%
-    mutate(departement = tolower(departement))%>%
-    mutate(departement = gsub('\\-', '_',departement))
-
-# Find, load yield data and merge with climate data
-
-    YIELDS  <- dir(Resultfolder, pattern = "TABLE_Yield_Pred",full.names=FALSE) 
-    YIELDS  <- Filter(function(x) grepl(Crop, x), YIELDS)
-    YIELDS  <-read.csv(paste0(Resultfolder,"/",YIELDS[1]), header=TRUE, sep=" ", dec=",", na.strings="NA") %>%
-         mutate(departement = tolower(departement))
-
-
-TABLE  <-full_join(YIELDS,CLIMAT,by=c('year_harvest','departement'))
-
-
-# Save the final file
-print(paste("yield and climate file of: ",Crop," saved in",Resultfolder,sep=""))
-write.csv2(TABLE,paste(Resultfolder,"/",'TABLE_MERGED_YIELD_CLIMATE_',ifelse(grepl("4month", CLIM), "_4month_", ""),Crop,".csv",sep=''),row.names = F)
+# load package
+library("tidyverse")
+multi_join <- function(list_of_loaded_data, join_func, ...){
+  require("dplyr")
+  output <- Reduce(function(x, y) {join_func(x, y, ...)}, list_of_loaded_data)
+  return(output)
 }
 
-#III/ merge  
- crop_name %>% map(function(Crop)  FUN_MERGE(Crop,method="ALL_month"))
- crop_name %>% map(function(Crop)  FUN_MERGE(Crop,method="4_month"))
+############# I/ DATALOAD  ##############################################################################
+ # Load and Change format of climate data
+ 
+ Climate_Detrend <-  read.csv2("~/Documents/CLAND/Files_txt/Climate_Detrend.csv") %>% 
+  select(-X) %>%
+  mutate(departement=toupper(gsub("[']", '-', departement)))
+
+  X <- split(Climate_Detrend, Climate_Detrend$clim_var)
+ for (i in 1: length(X)){
+   NAMES<- c(names(X[[i]][c(1:4)]),
+             paste(unique(X[[i]]$clim_var), names(X[[i]][5:7]),sep="_"),
+             names(X[[i]][8]),
+             paste(unique(X[[i]]$clim_var), names(X[[i]][9:14]),sep="_"))
+   names(X[[i]])<- NAMES
+   X[[i]]<- X[[i]] %>% select(-clim_var)
+ }
+
+  Climate_Detrend <- multi_join(X, full_join) 
+
+  # Load Yield data
+  
+ Yield_anomalies <- read.csv2("~/Documents/CLAND/Files_txt/Yield_anomalies.csv")  %>% select(-X) %>%
+                    rename(year_harvest = year,
+                           departement  = department) %>% 
+                     mutate(departement=toupper(gsub('[_]', '-', departement)))
+ 
+                           
+ gsub('[.]', '-', x)
+  
+ ############# II/ Merge  ##############################################################################
+ 
+ Climate_Detrend <- Climate_Detrend %>% filter(!departement %in% c("PARIS", "TERRITOIRE"))
+ Yield_Climate<- full_join(Climate_Detrend,Yield_anomalies, by= c("departement","year_harvest", "sp"))
+ write.csv2(Yield_Climate,"Yield_Climate.csv")
+
+# setdiff(Climate_Detrend$departement,Yield_anomalies$departement)
+ 
  
