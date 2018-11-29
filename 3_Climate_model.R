@@ -31,7 +31,7 @@ SELECT    <- Climate                                  %>%
   group_by(clim_var,departement, sp)                  %>% 
   count()                                             %>%
   mutate(ID =paste(clim_var,departement, sp))         %>%
-  filter(n>4)
+  filter(n<4)
 
 Climate2 <- Climate %>% filter(ID %in% SELECT$ID)
 #æClimate <- Climate %>% filter(clim_var %in% c("PR", "Tmean"))

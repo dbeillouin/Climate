@@ -62,7 +62,6 @@ rap_tot_gs <- Climate_Winter_crops %>% filter(month %in% c(8:12,1:7))  %>% mutat
 ################III/ Merge Save  files #####################################
 
 LIST<-ls(pattern="gs")
-
-CLIM<- get(LIST) %>%   bind_rows()
-
+LIST2<-mget(LIST)
+CLIM<- LIST2 %>%   bind_rows()
 write.csv2(CLIM,"Climate.csv", dec=".")
