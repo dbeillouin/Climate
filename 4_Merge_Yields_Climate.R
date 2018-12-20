@@ -20,14 +20,14 @@ multi_join <- function(list_of_loaded_data, join_func, ...){
  for (i in 1: length(X)){
    NAMES<- c(names(X[[i]][c(1:4)]),                               # Change the column's name of each dataframe
              paste(unique(X[[i]]$clim_var), names(X[[i]][5:7]),sep="_"),
-             names(X[[i]][8]),
-             paste(unique(X[[i]]$clim_var), names(X[[i]][9:14]),sep="_"))
+             names(X[[i]][c(8)]),
+             paste(unique(X[[i]]$clim_var), names(X[[i]][9:15]),sep="_"))
    names(X[[i]])<- NAMES
    X[[i]]<- X[[i]] %>% select(-clim_var)
  }
 
-  Climate_Detrend <- multi_join(X, full_join)                    # Join the different data frame
-  
+  Climate_Detrend <- multi_join(X, full_join)
+
   Climate_Detrend <- Climate_Detrend %>% 
          filter(!departement %in% c("PARIS", "TERRITOIRE"))      # Supress useless departement
   

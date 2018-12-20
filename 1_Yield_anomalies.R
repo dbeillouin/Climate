@@ -58,7 +58,7 @@ tab_lin<- data.frame(
 names(tab_lin)<- c("department", "year", "sp", "anomaly_lin", "prediction_lin", "anomaly_quad", "prediction_quad", "anomaly_cub", "prediction_cub")
 tab_lin     <-full_join(tab_lin,TAB_AIC,by=c("department","sp"))
 
-## We add a column with result dor the best model
+## We add a column with result for the best model
 tab_lin     <- tab_lin %>%
   mutate(anomaly_poly = case_when( AIC_lin  == mini ~ anomaly_lin,
                                    AIC_cub  == mini ~ anomaly_cub,
@@ -96,12 +96,12 @@ RES<-full_join(RES, Yield) %>% select(-contains("AIC"), -mini)
 
 # calculate mean and sd value 
 SUM<-RES %>% group_by(department,sp) %>%
-  summarize(sd_lin= sd(anomaly_lin,na.rm=TRUE),       mean_lin =mean(anomaly_lin,na.rm=TRUE),
-            sd_cub= sd(anomaly_cub,na.rm=TRUE),       mean_cub = mean(anomaly_cub,na.rm=TRUE),
-            sd_quad= sd(anomaly_quad,na.rm=TRUE),     mean_quad =mean(anomaly_quad,na.rm=TRUE),
-            sd_spline= sd(anomaly_spline,na.rm=TRUE), mean_spline = mean(anomaly_spline,na.rm=TRUE),
-            sd_loess = sd(anomaly_loess,na.rm=TRUE),  mean_loess= mean(anomaly_loess,na.rm=TRUE),
-            sd_poly= sd(anomaly_poly,na.rm=TRUE),     mean_poly= mean(anomaly_poly,na.rm=TRUE))
+  summarize(sd_lin= sd(anomaly_lin,na.rm=TRUE),       mean_lin =mean(prediction_lin,na.rm=TRUE),
+            sd_cub= sd(anomaly_cub,na.rm=TRUE),       mean_cub = mean(prediction_cub,na.rm=TRUE),
+            sd_quad= sd(anomaly_quad,na.rm=TRUE),     mean_quad =mean(prediction_quad,na.rm=TRUE),
+            sd_spline= sd(anomaly_spline,na.rm=TRUE), mean_spline = mean(prediction_spline,na.rm=TRUE),
+            sd_loess = sd(anomaly_loess,na.rm=TRUE),  mean_loess= mean(prediction_loess,na.rm=TRUE),
+            sd_poly= sd(anomaly_poly,na.rm=TRUE),     mean_poly= mean(prediction_poly,na.rm=TRUE))
 ## il y a des Na : vérifier
 
 VERIF <- SUM[rowSums(is.na(SUM)) > 0,] %>%
@@ -112,17 +112,92 @@ AA<-FILTRE %>% filter(ID %in% VERIF$ID)
 # calculate standardize and normalize residuals
 RES<-full_join(RES,SUM)%>%
   mutate(anomaly_lin_stand    = anomaly_lin/ sd_lin,
-         anomaly_lin_norm     = anomaly_lin/ mean_lin,
+         anomaly_lin_norm     = anomaly_lin/ prediction_lin*100,
          anomaly_cub_stand    = anomaly_cub/ sd_cub,
-         anomaly_cub_stand    = anomaly_cub/ mean_cub,
+         anomaly_cub_norm    = anomaly_cub/ prediction_cub*100,
          anomaly_quad_stand   = anomaly_quad/ sd_quad,
-         anomaly_quad_stand   = anomaly_quad/ mean_quad,
+         anomaly_quad_norm   = anomaly_quad/ prediction_quad*100,
          anomaly_slpine_stand = anomaly_spline/ sd_spline,
-         anomaly_spline_stand = anomaly_spline/ mean_spline,
+         anomaly_spline_norm = anomaly_spline/ prediction_spline*100,
          anomaly_loess_stand  = anomaly_loess/ sd_loess,
-         anomaly_loess_stand  = anomaly_loess/ mean_loess,
+         anomaly_loess_norm  = anomaly_loess/ prediction_loess*100,
          anomaly_poly_stand   = anomaly_poly/ sd_poly,
-         anomaly_poly_stand   = anomaly_poly/ mean_poly) %>%
-    select(-contains("sd_"), -contains("mean_"))
+         anomaly_poly_norm   = anomaly_poly/ prediction_poly*100) 
+#%>%    select(-contains("sd_"), -contains("mean_"))
   
   
+DAT1<-RES %>% select(contains("anomal"), year, sp) %>%
+  group_by(year,sp)%>%
+  summarise_all(funs(mean)) %>%
+  gather(variable, value, -year, -sp) %>%
+  separate(variable, c("first", "type","method") )
+  
+TT<-DAT1 %>% filter(sp=="maize_total")
+ggplot(TT)+ geom_point(aes(x=year,y=value ))+ facet_wrap(type~method, scales="free", ncol=6)
+
+TT$cyear_class<-cut(TT$year, breaks= c(1900,1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020), 
+                             labels=c("1950", "1960", "1970", "1980", "1990", "2000", "2010", "2020"))
+
+library(RColorBrewer)
+my_orange = brewer.pal(n = 9, "Oranges")[3:9] #there are 9, I exluded the two lighter hues
+ggplot(TT)+ geom_density(aes(x=value , color=cyear_class))+ facet_wrap(type~method, scales="free", ncol=6)+
+  theme_pubr()+
+  scale_colour_manual(values=c("#74C476" ,"#41AB5D", "#238B45","#FD8D3C" ,"#F16913" ,"#D94801", "#A63603" ,"black"))
+dev.copy2pdf(file="Anomaly_Maize.pdf",width = 15, height = 8)
+
+
+  filter(sp=="maize_total")
+# dep<- c(eure,)
+# COUNT<-DAT1 %>% group_by(department) %>% count() %>% arrange(desc(n)) %>% filter(n>110)
+
+#FF<-DAT1 %>% filter(department %in%c("charente_maritime","aude", "charente", "ain", "vendee","deux-sevres", "vienne"))
+
+ggplot(data=DAT1 %>% filter(department  %in% c("charente_maritime","aude", "charente", "ain", "vendee","deux-sevres", "vienne") ))  +
+  geom_density(aes(x=anomaly_spline_norm, color=factor(cyear_class)))+facet_wrap(~sp, scales="free")+theme_pubr()+facet_wrap(~department)+
+  scale_colour_brewer(palette = "Greens")
+
+scale_color_gradient(values=c("#132B43", "#56B1F7"))
+
+ggplot(data=DAT1 %>% filter(department  %in% c("charente_maritime","aude", "charente", "ain", "vendee","deux-sevres", "vienne") ))  +
+  geom_point(aes(y=anomaly_spline_norm,x=year))+facet_wrap(~sp, scales="free")+theme_pubr()+facet_wrap(~department)
+
+#verif
+ggplot(data=DAT1 %>% filter(department  %in% c("charente_maritime","aude", "charente", "ain", "vendee","deux-sevres", "vienne") ))  +
+  geom_point(aes(y=yield,x=year))+facet_wrap(~sp, scales="free")+
+  geom_point(aes(y=anomaly_lin+prediction_lin,x=year),pch=21, color='red')+facet_wrap(~sp, scales="free")+theme_pubr()+facet_wrap(~department)
+###
+  
+
+
+DAT1$pr
+
+EX<- DAT1 %>%filter(cyear_class=="(2e+03,2.02e+03]") %>%
+   filter(department=="aude") %>% select(contains("lin"))
+unique(DAT1$cyear_class)
+dev.copy2pdf(file="Anomaly_Maize_depNorm.pdf")
+
+
+  
+RES$cyear_class<-cut(RES$year, 10)
+  RES %>%
+  group_by(sp) %>%
+  ggplot(data=.)  +
+  geom_density(aes(x=anomaly_spline, color=factor(cyear_class)))+facet_wrap(~sp, scales="free")+theme_pubr()
+
+dev.copy2pdf(file="Anomaly_ALL.pdf")
+     
+  
+ggplot(data=DAT1)  +
+  geom_density(aes(x=anomaly_spline, color=factor(cyear_class)))+facet_wrap(~sp, scales="free")+theme_pubr()
+
+
+  dev.off()
+  geom_density(aes(data=DAT2,x=anomaly_spline), color="blue")+facet_wrap(~sp, scales="free")
++
+  geom_density(aes(RES %>% filter(year>1990), aes(anomaly_spline)))
+
+
++facet_wrap(~sp, scales="free")
+  
+  
+summary(RES$anomaly_spline)
