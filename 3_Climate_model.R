@@ -1,190 +1,167 @@
 # Create Dataframe of climatic variable without climate change
 rm(list=ls())
 
-library("broom")
-library("purrr")
-library(tidyverse)
-library(multidplyr)
-require(data.table)
-#library(parallel)
-#cluster <- create_cluster(cores = detectCores())
+x<- c("broom","purrr","tidyverse","data.table","furrr", "magrittr")
+lapply(x, require, character.only = TRUE)
+plan(multiprocess, workers = 4)
+source('~/Documents/ClimateGIT/function_lin_and_loess.R', echo=TRUE)
+source('~/Documents/ClimateGIT/function_year_detrend.R', echo=TRUE)
+source('~/Documents/ClimateGIT/function_spread.R', echo=TRUE)
+source('~/Documents/ClimateGIT/fonction_SQUARE_and_NORM.R', echo=TRUE)
+
 
 ############# I/ DATALOAD  ##############################################################################
-Climate <- fread("~/Documents/CLAND/Files_txt/Climate.csv", sep=";")    %>% 
+Climate <- fread("~/Documents/CLAND/Files_txt/Climate.csv", sep=";")             %>% 
   dplyr::select(-V1)%>%
-        mutate(value   = as.numeric(gsub(",", ".", gsub("\\.", "", value)))) %>%    # transform variables     
-        filter(!value  ==-9999)                           %>%                       # C'est quoi ces valeurs à -9999????????????????
-  spread(key= "clim_var",value = "value")              %>%                       # Change format data
-  mutate(Tmean =(Tn+Tx)/2)      %>%                                                 # Calculate Tmean
-  gather(clim_var, value, -year_cal,-departement,-month,-unit,-year_harvest,-sp) %>%  # get back to initial format
-  filter(!is.na(value))                                   %>% 
-  na.omit(TAB)                                            %>%                       # Pourquio na omit???
-  group_by (year_harvest,clim_var,departement,sp)         %>%                       # Group
-  mutate(ID =paste(clim_var,departement, sp))
+        mutate(value   = as.numeric(gsub(",", ".", gsub("\\.", "", value))))     %>%    # transform variables     
+        filter(!value  ==-9999)                                                  %>%    # C'est quoi ces valeurs à -9999????????????????
+  spread(key= "clim_var",value = "value")                                        %>%                              # Change format data
+  mutate(Tmean =(Tn+Tx)/2)      %>%                                                     # Calculate Tmean
+  gather(clim_var, value, -year_cal,-departement,-month,-unit,-year_harvest,-sp) %>%    # get back to initial format
+  filter(!is.na(value))                                                          %>% 
+  na.omit(TAB)                                                                   %>%    # Pourquio na omit???
+  group_by (year_harvest,clim_var,departement,sp)                                %>%    # Group
+  mutate(ID =paste(clim_var,departement))
 
-
-###########II/ Select climate data  #############################################################################
-
-SELECT    <- Climate                                  %>%                         
-  summarise(Var_mean_gs = mean(as.numeric(value)))    %>%                           # Summarize data
-  group_by(clim_var,departement, sp)                  %>% 
-  count()                                             %>%
-  mutate(ID =paste(clim_var,departement, sp))         %>%
-  filter(n<4)
-
-Climate2 <- Climate %>% filter(ID %in% SELECT$ID)
-#æClimate <- Climate %>% filter(clim_var %in% c("PR", "Tmean"))
 
 ###########II/ Calculation #############################################################################
   ## Define the types of models
-  model_lin     <-function(DAT) {lm(Var_mean_gs~year_harvest, data=DAT)}
-  model_loess   <-function(DAT) {loess(Var_mean_gs~year_harvest, data=DAT)}
-  model_spline  <-function(DAT) {smooth.spline(DAT$Var_mean_gs,DAT$year_harvest)}
  
-  
-  
-  # SSAI<-Climate %>% filter(clim_var=="Tmean", sp=="bar_spr_gs", month=="9") %>% 
-  # group_by(year_harvest,clim_var,departement, sp, month)           %>%                           # Group
-  #   summarise(Var_mean_gs = mean(as.numeric(value))) 
-  # 
-  # RR<-smooth.spline(SSAI$Var_mean_gs,SSAI$year_harvest)
-  # 
-  
-  
-  SELECT    <- Climate                                  %>%
-    group_by(clim_var,departement, sp,month)            %>% 
-    count()                                             %>%
-    mutate(ID =paste(clim_var,departement, sp))         %>%
-    filter(n<4)
-  
-  
-  
-  # TAb esach month 
-  TAB_EACH_month  <- Climate                                   %>%                           # Create a table for all month    
-    group_by(clim_var,departement, sp, month,year_harvest)     %>% 
-    rename( Var_mean_gs = value)
-  # Group
 
-
-list_sp <- unique(TAB_EACH_month$sp)
-FF<-TAB_EACH_month   %>% ungroup() %>%  filter(sp %in% list_sp[1:2]) %>% 
-  group_by(clim_var,departement, sp, month)  
-
-# inear and loess model  
-
-library(furrr)
-plan(multiprocess, workers = 4)
-TAB_EACH_month1 <-FF                  %>%  
-    nest()                                        %>% 
-    mutate(lin            = furrr::future_map(data, model_lin,.progress = TRUE),# linear model
-           pred_lin       = furrr::future_map(lin, augment,.progress = TRUE),
-           loess          = furrr::future_map(data, model_loess,.progress = TRUE),                             # loess model
-           pred_loess     = furrr::future_map(loess, augment,.progress = TRUE))
-
+  list_sp <- unique(Climate$sp)
+  Climate      <- subset(Climate, sp == list_sp[1]) 
+  
+  
+######### TAB esach month ############################################################################################## 
+  TAB_EACH_month  <- Climate                                                    %>%   # Create a table for EACH month    
+    group_by(clim_var,departement, month)                                       %>% 
+    dplyr::rename(Var_mean_gs=value)
 
   
-lin_EACH   <- TAB_EACH_month1  %>%   unnest(pred_lin, .drop = TRUE)   %>%               # Extract results of the lin model
-    select(departement,  sp, clim_var,year_harvest, Var_mean_gs,.fitted,.resid)%>%     # Choose variable
-    mutate(method="lin_EACH")                                                           # Create a key
+  LIN_LOESS_SPLINE<-function_lin_AND_loess(TAB=TAB_EACH_month)
+  EACH<- function_year_detrend(TAB=LIN_LOESS_SPLINE %>% group_by(departement, clim_var, method, month)  )
+  EACH<- function_spread(TAB=EACH)
+  glimpse(EACH)
+  EACH<- function_SQUARE_AND_NORM(TAB=EACH)
   
-loess_EACH <- TAB_EACH_month1  %>%   unnest(pred_loess, .drop = TRUE) %>%               # Extract results of the loess model
-    select(departement,  sp, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid)%>%  # Choose variable
-    mutate(method="loess_EACH")  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+#DD <-   EACH %>%  bind_rows()
+#  write.csv2(DD, "CLim_mois.csv")
+
+################ ALL month of the growing season are kept to calculate climatic mean values#############################
+TAB_ALL_month  <- Climate                                                       %>%  # Create a table for all month    
+   summarise(Var_mean_gs = mean(as.numeric(value)))                             %>%  # Summarize data
+   group_by(clim_var,departement, sp)                                           %>%  # Group
+   nest()                                                                       %>%
+   mutate(lin           = furrr::future_map(data, model_lin,  .progress = TRUE),      # linear model
+         pred_lin       = furrr::future_map(lin, augment,     .progress = TRUE),
+         loess          = furrr::future_map(data, model_loess,.progress = TRUE),      # loess model
+         pred_loess     = furrr::future_map(loess, augment,   .progress = TRUE))
 
 
-# spline
-# on sélectionne les données dont l'interquartile est supérieur à 0
-SELECT2    <- Climate                                 %>%
-  group_by(clim_var,departement, sp,month)            %>% 
-  summarise(IQR = IQR(value))                         %>%
-  mutate(ID =paste(clim_var,departement, sp))         %>%
+lin_ALL   <- TAB_ALL_month  %>%   unnest(pred_lin, .drop = TRUE)                 %>%  # Extract results of the lin model
+  select(departement,  sp, clim_var,year_harvest, Var_mean_gs,.fitted,.resid)    %>%  # Choose variable
+  mutate(method="lin_ALL")                                                            # Create a key
+
+loess_ALL <- TAB_ALL_month  %>%   unnest(pred_loess, .drop = TRUE)               %>%  # Extract results of the loess model
+  select(departement,  sp, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid) %>%  # Choose variable
+  mutate(method="loess_ALL")                                                          # Create a key
+
+SELECT2    <- Climate                                                            %>%
+  group_by(clim_var,departement, sp)                                             %>% 
+  summarise(IQR = IQR(value))                                                    %>%
+  mutate(ID =paste(clim_var,departement, sp))                                    %>%
   filter(IQR==0)
 
-TAB_EACH_month2  <- FF          %>%   
-  ungroup() %>%
-  filter(!ID %in%  SELECT2$ID)               %>%
-  group_by(clim_var,departement, sp, month) %>%
-  nest() %>%
-  mutate(spline         = furrr::future_map(data, model_spline,.progress = TRUE),                       # spline model
+TAB_ALL_month  <- Climate                                                  %>%   
+  ungroup()                                                                      %>%
+  mutate(ID =paste(clim_var,departement, sp))                                    %>%
+  filter(!ID %in%  SELECT2$ID)                                                   %>%
+  group_by(clim_var,departement, sp)                                             %>%
+  nest()                                                                         %>%
+  mutate(spline         = furrr::future_map(data, model_spline,.progress = TRUE),     # spline model
          pred_spline    = furrr::future_map(spline, augment,.progress = TRUE))
 
+spline_ALL <- TAB_ALL_month  %>%   unnest(pred_spline, .drop = TRUE)             %>%  # Extract results of the loess model
+  rename( year_harvest = x, Var_mean_gs= y)                                      %>% 
+  select(departement,  sp, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid) %>%  # Choose variable
+  mutate(method="spline_ALL")     
 
-spline_EACH <- TAB_EACH_month2  %>%   unnest(pred_spline, .drop = TRUE) %>%               # Extract results of the loess model
-  rename( year_harvest = y, Var_mean_gs= x) %>% 
-  select(departement,  sp, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid)%>%  # Choose variable
-  mutate(method="sline_EACH")
-
-
-# Create a key
-  EACH<- do.call("rbind", list(lin_EACH, spline_EACH, loess_EACH))
-
-  
-##### ALL month of the growing season are kept to calculate climatic mean values
-TAB_ALL_month  <- Climate                              %>%                           # Create a table for all month    
-   summarise(Var_mean_gs = mean(as.numeric(value)))    %>%                           # Summarize data
-   group_by(clim_var,departement, sp)                  %>%                           # Group
-   nest() %>%
-   mutate(lin           = purrr::map(data, model_lin),                               # linear model
-         pred_lin       = purrr::map(lin, augment),
-         loess          = purrr::map(data, model_loess),                             # loess model
-         pred_loess     = purrr::map(loess, augment),
-         sline          = purrr::map(spline, model_spline),
-         pred_spline    = purrr::map(data, spline))
-
-
-lin_ALL   <- TAB_ALL_month  %>%   unnest(pred_lin, .drop = TRUE)   %>%               # Extract results of the lin model
-  select(departement,  sp, clim_var,year_harvest, Var_mean_gs,.fitted,.resid)%>%     # Choose variable
-  mutate(method="lin_ALL")                                                           # Create a key
-
-loess_ALL <- TAB_ALL_month  %>%   unnest(pred_loess, .drop = TRUE) %>%               # Extract results of the loess model
-  select(departement,  sp, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid)%>%  # Choose variable
-  mutate(method="loess_ALL")                                                         # Create a key
-
-spline_ALL <- TAB_ALL_month  %>%   unnest(pred_spline, .drop = TRUE) %>%               # Extract results of the loess model
-  select(departement,  sp, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid)%>%  # Choose variable
-  mutate(method="loess_ALL")     
-
-ALL<- c(lin_ALL,loess_ALL, spline_EACH) %>% bind_rows()
+ALL<- do.call("rbind", list(lin_ALL, loess_ALL, spline_ALL))
+# write.csv2(ALL, "CLim_ALL.csv")
 
 # Verif
 FF<- ALL %>% filter(clim_var== "0<Tx<10")
 FF$SUM<-FF$.fitted+ FF$.resid
 ggplot(FF)+geom_point(aes(x=Var_mean_gs,SUM))
 
-############ Lobell method (keep only the last 4 month to calculate climatic variables )
+########################### Lobell method (keep only the last 4 month to calculate climatic variables )#################
 Month_to_keep<- seq((max(Climate$month[Climate$month<=9])-3),max(Climate$month[Climate$month<=9]),by=1)
 
-TAB_Lobell   <-  Climate                               %>%                          # Create a table for Lobell
-   filter (month %in% Month_to_keep )                  %>%                          # Filter month
-   summarise(Var_mean_gs = mean(as.numeric(value)))    %>%                          # Summarize data
-   group_by(clim_var, departement, sp)                 %>%                          # Group
-  nest()%>%
-  mutate(lin            = purrr::map(data, model_lin),                              # linear model
-         pred_lin       = purrr::map(lin, augment),
-         loess          = purrr::map(data, model_loess),                            # loess model
-         pred_loess     = purrr::map(loess, augment),
-         sline          = purrr::map(spline, model_spline),
-         pred_spline    = purrr::map(data, spline))
+TAB_Lobell   <-  Climate                                                         %>%  # Create a table for Lobell
+   filter (month %in% Month_to_keep )                                            %>%  # Filter month
+   summarise(Var_mean_gs = mean(as.numeric(value)))                              %>%  # Summarize data
+   group_by(clim_var, departement, sp)                                           %>%  # Group
+  nest()                                                                         %>%
+  mutate(lin            = furrr::future_map(data, model_lin,  .progress = TRUE),      # linear model
+         pred_lin       = furrr::future_map(lin, augment,     .progress = TRUE),
+         loess          = furrr::future_map(data, model_loess,.progress = TRUE),      # loess model
+         pred_loess     = furrr::future_map(loess, augment,   .progress = TRUE))
 
-lin_lob   <- TAB_Lobell  %>%   unnest(pred_lin, .drop = TRUE)   %>%                 # Extract results of the lin model
-  select(departement,  sp,clim_var, year_harvest,Var_mean_gs, .fitted,.resid) %>%   # Choose variable
-  mutate(method="lin_Lob")                                                          # Create a key
-loess_lob <- TAB_Lobell  %>%   unnest(pred_loess, .drop = TRUE) %>%                 # Extract results of the loess model
-  select(departement,  sp,clim_var, year_harvest,Var_mean_gs, .fitted, .resid) %>%  # Choose variable
-  mutate(method="loess_Lob")                                                        # Create a key
-
-spline_lob <- TAB_Lobell  %>%   unnest(pred_spline, .drop = TRUE) %>%                 # Extract results of the loess model
-  select(departement,  sp,clim_var, year_harvest,Var_mean_gs, .fitted, .resid) %>%  # Choose variable
-  mutate(method="loess_Lob") 
-
-LOB<- c(lin_lob,loess_lob, spline_lob) %>% bind_rows()
+lin_lob   <- TAB_Lobell  %>%   unnest(pred_lin, .drop = TRUE)                    %>%  # Extract results of the lin model
+  select(departement,  sp,clim_var, year_harvest,Var_mean_gs, .fitted,.resid)    %>%  # Choose variable
+  mutate(method="lin_Lob")                                                            # Create a key
+loess_lob <- TAB_Lobell  %>%   unnest(pred_loess, .drop = TRUE)                  %>%                 # Extract results of the loess model
+  select(departement,  sp,clim_var, year_harvest,Var_mean_gs, .fitted, .resid)   %>%  # Choose variable
+  mutate(method="loess_Lob")                                                          # Create a key
 
 
-###############################################
+SELECT2    <- Climate                                                            %>%
+  filter (month %in% Month_to_keep )                                             %>%   # Filter month
+  group_by(clim_var,departement, sp)                                             %>% 
+  summarise(IQR = IQR(value))                                                    %>%
+  mutate(ID =paste(clim_var,departement, sp))                                    %>%
+  filter(IQR==0)
 
-TAB<-c(ALL, LOB, EACH)%>%
-      bind_rows()   %>% # Bind all data
-  group_by(departement,sp, clim_var, method)%>%                                                    # Group
+TAB_Lobell  <- Climate                                                          %>%
+  ungroup()                                                                      %>%
+  mutate(ID =paste(clim_var,departement, sp))                                    %>%
+  filter(!ID %in%  SELECT2$ID)                                                   %>%
+  group_by(clim_var,departement, sp)                                             %>%
+  nest()                                                                         %>%
+  mutate(spline         = furrr::future_map(data, model_spline,.progress = TRUE),     # spline model
+         pred_spline    = furrr::future_map(spline, augment,.progress = TRUE))
+
+spline_lob <- TAB_Lobell  %>%   unnest(pred_spline, .drop = TRUE)                 %>%  # Extract results of the loess model
+  rename( year_harvest = x, Var_mean_gs= y)                                       %>% 
+  select(departement,  sp, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid)  %>%  # Choose variable
+  mutate(method="spline_lob")    
+
+LOB<- do.call("rbind", list(lin_lob, loess_lob, spline_lob))
+# write.csv2(LOB, "CLim_LOB.csv")
+
+
+##################################### Different years of detrending ###################################################
+rm(list=ls())
+EACH <- fread("~/Documents/ClimateGIT/CLim_mois.csv",dec=",")  %>% dplyr::select(-V1)
+LOB  <- fread("~/Documents/ClimateGIT/CLim_LOB.csv",dec=",")    %>% dplyr::select(-V1) %>% mutate(month= "ALL")
+ALL  <- fread("~/Documents/ClimateGIT/CLim_ALL.csv",dec=",")    %>% dplyr::select(-V1) %>% mutate(month= "ALL")
+
+
+TAB<-do.call("rbind", list(ALL, LOB, EACH))
+
+
+function_year_detrend<- function(TAB){
+TAB %<>% 
+  group_by(departement,sp, clim_var, method)                                     %>%  # Group
   mutate(y58 = case_when(year_harvest <= 1959      ~ Var_mean_gs,
                          year_harvest > 1959      ~ .resid+.fitted[year_harvest==1959]),
          y65 = case_when(year_harvest <= 1965      ~ Var_mean_gs,
@@ -199,7 +176,15 @@ TAB<-c(ALL, LOB, EACH)%>%
                          year_harvest > 1980      ~ .resid+.fitted[year_harvest==1980]),
          y82 = case_when(year_harvest <= 1982      ~ Var_mean_gs,
                          year_harvest > 1982      ~ .resid+.fitted[year_harvest==1982]))
+return(TAB)
+}
 
+#### write file
+fwrite(TAB,"Climate_Detrend.csv")
+
+
+
+########################### PLOT #######################################################################################
 #write.csv(TAB,"TAB09_12.csv")
 TAB_PLOT <- TAB %>% 
   mutate(y58 =y58 -Var_mean_gs,
@@ -373,5 +358,3 @@ dev.copy2pdf(file="Anomaly_ALL.pdf")
 
 
 
-#### write file
-write.csv2(TAB,"Climate_Detrend.csv")
