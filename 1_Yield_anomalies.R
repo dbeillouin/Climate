@@ -11,6 +11,12 @@ Yield = lapply(temp, function(x) read.table(x,header=TRUE , sep=";", dec=".", na
   mutate(department  = tolower(department),
          ID          = paste0(department, sp)) %>%
   filter(complete.cases(yield))     
+
+DD<-reshape::cast(Yield, sp~year , length, value = 'yield') 
+NB<-do.call(pmax, DD[,-1])
+NN<-do.call(pmax, DD)
+
+data.frame(NB,NN)
 #####
 
 ## Define the types of models

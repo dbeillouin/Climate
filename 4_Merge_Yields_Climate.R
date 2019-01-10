@@ -45,7 +45,44 @@ FIRST<- SP %>%  filter(month== "ALL")                         # Subset climatic 
 FIRST<-multi_join(X,full_join)
   
 
-SECOND<- SP %>%  filter(!month== "ALL")                    # Subset climatic data calculated for each month
+CLIMAT <- FIRST %>% 
+  filter(!departement %in% c("PARIS", "TERRITOIRE"))        %>%       # Recode name species
+  mutate(sp = fct_recode(sp,
+                         "barley_spring"=  "bar_spr_gs",          `barley_total` = "bar_tot_gs",
+                         `barley_winter` = "bar_win_gs",           `maize_total` = "mai_tot_gs",
+                         `oats_spring` = "oat_spr_gs",             `oats_total` = "oat_tot_gs",
+                         `oats_winter` = "oat_win_gs",             `potatoes_total` = "pot_tot_gs",
+                         `rape_total` = "rap_tot_gs",
+                         `rape_winter` = "rap_win_gs",             `sugarbeet_total` = "sug_tot_gs",
+                         `sunflower_total` = "sun_tot_gs",         `wheat_durum_total` = "x",
+                         `wheat_spring` = "wht_spr_gs",            `wheat_total` = "wht_tot_gs",
+                         `wheat_winter` = "wht_win_gs",            `wine_total` = "wne_tot_gs"))
+
+# Load Yield data
+Yield_anomalies <- fread("~/Documents/CLAND/Files_txt/Yield_anomalies.csv") %>% 
+  select(-V1)                                               %>%
+  rename(year_harvest = year,
+         departement  = department)                         %>% 
+  mutate(departement=toupper(gsub('[_]', '-', departement)))
+SP<- unique(CLIMAT$sp)
+YIELD           <- subset(Yield_anomalies, sp == SP)
+
+############# II/ Merge  ##############################################################################
+
+Yield_Climate<- full_join(CLIMAT,YIELD, by= c("departement","year_harvest", "sp"))
+
+fwrite(Yield_Climate,paste("Yield_Climate", "_LOB_",List_SP[n],".csv", sep=""))
+}
+
+
+
+  
+##### For each month. 
+
+for (n in 1: length(List_SP)) {                               # loop on species (file too big otherwise)
+  SP      <- subset(Climate_Detrend, sp == List_SP[n])          # Define e sub-data_frame
+  
+  SECOND<- SP %>%  filter(!month== "ALL")                    # Subset climatic data calculated for each month
   
   X <- split(SECOND, paste(SECOND$clim_var))               # create a list of dataframe
   for (i in 1: length(X)){
@@ -70,8 +107,8 @@ SECOND<- SP %>%  filter(!month== "ALL")                    # Subset climatic dat
     print(paste(A$sp[1], A$clim_var[1]))
   }
   SECOND<-multi_join(X,full_join)
-  
-  CLIMAT <- bind_rows(list(FIRST, SECOND)) %>%             # join all the data
+
+  CLIMAT <- SECOND %>% 
     filter(!departement %in% c("PARIS", "TERRITOIRE"))        %>%       # Recode name species
     mutate(sp = fct_recode(sp,
                            "barley_spring"=  "bar_spr_gs",          `barley_total` = "bar_tot_gs",
@@ -85,17 +122,17 @@ SECOND<- SP %>%  filter(!month== "ALL")                    # Subset climatic dat
                            `wheat_winter` = "wht_win_gs",            `wine_total` = "wne_tot_gs"))
   
   # Load Yield data
- Yield_anomalies <- fread("~/Documents/CLAND/Files_txt/Yield_anomalies.csv")  %>% 
-                    select(-V1)                                               %>%
-                    rename(year_harvest = year,
-                           departement  = department)                         %>% 
-                     mutate(departement=toupper(gsub('[_]', '-', departement)))
- YIELD           <- subset(Yield_anomalies, sp == List_SP[n])
- 
- ############# II/ Merge  ##############################################################################
- 
- Yield_Climate<- full_join(CLIMAT,Yield_anomalies, by= c("departement","year_harvest", "sp"))
- 
- fwrite(Yield_Climate,paste("Yield_Climate", "_",List_SP[n],".csv", sep=""))
-            
+  Yield_anomalies <- fread("~/Documents/CLAND/Files_txt/Yield_anomalies.csv") %>% 
+    select(-V1)                                               %>%
+    rename(year_harvest = year,
+           departement  = department)                         %>% 
+    mutate(departement=toupper(gsub('[_]', '-', departement)))
+  SP<- unique(CLIMAT$sp)
+  YIELD           <- subset(Yield_anomalies, sp == SP)
+  
+  ############# II/ Merge  ##############################################################################
+  
+  Yield_Climate<- full_join(CLIMAT,YIELD, by= c("departement","year_harvest", "sp"))
+  
+  fwrite(Yield_Climate,paste("Yield_Climate", "_EACH_",List_SP[n],".csv", sep=""))
 }

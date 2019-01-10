@@ -1,59 +1,61 @@
-# load packages
-library("magrittr")
-library(tidyr); library(dplyr)
-library(gsubfn); library(maptools)
-library(classInt); library(stringr)
-library("broom")
-library(tidyverse)
-library("lme4")
-library(MCMCglmm) 
-library("randomForest")
-library("TigR")
 rm(list=ls())
 setwd("~/Documents/CLAND/files_txt")
 
+# load package
+x<- c("magrittr","data.table","tidyverse","gsubfn","maptools", "classInt","stringr","broom","lme4","MCMCglmm","randomForest","TigR")
+lapply(x, require, character.only = TRUE)
 
-Yield_Climate <- read.csv2("~/Documents/CLAND/Files_txt/Yield_Climate.csv") %>%
-  setNames(gsub('_Var_mean_gs', "_OBS",names(.)))
+
+temp = list.files(pattern="Yield_Climate*")
+
+Yield_Climate<-fread(temp[1])                     %>%
+  setNames(gsub('_Var_mean_gs', "_OBS",names(.))) %>%
+  select(-contains("0<Tx<10"),-contains("ETP"),-contains("Seq"),-contains("Tn"), -contains("Tx"),
+         -contains("RV_"))
+
+unique(Yield_Climate$sp)
+summary(Yield_Climate$`0<Tx<10_OBS_1`)
+# Yield_Climate <- read.csv2("~/Documents/CLAND/Files_txt/Yield_Climate.csv") %>%
+#   setNames(gsub('_Var_mean_gs', "_OBS",names(.)))
 
 ############# I/ DATALOAD  ##############################################################################
 
 # filter à vérifer!!!!
-Yield_Climate <-  Yield_Climate  %>% dplyr::select(-X)
 Yield_Climate <- Yield_Climate   %>% filter(!is.na(yield))
-Yield_Climate <- Yield_Climate   %>% filter(!is.na(Tmean_OBS))
+#Yield_Climate <- Yield_Climate   %>% filter(!is.na(Tmean_y58_ALL))
 Yield_Climate <- Yield_Climate   %>% filter(!yield==0)
 
 
-VERIF<- Yield_Climate2 %>% filter(departement=="AIN", year_harvest=="1959")
-# Add quare of all variables
+#VERIF<- Yield_Climate2 %>% filter(departement=="AIN", year_harvest=="1959")
+# Add square of each variables
 Yield_Climate2 <- bind_cols(Yield_Climate,
-                            data.frame(lapply(Yield_Climate                         %>%
+                            data.frame(lapply(Yield_Climate                                %>%
                                                 dplyr::select_if(is.numeric)               %>%
                                                 dplyr::select(-contains(".fitted"),-contains(".resid"),
-                                                       -contains("anomaly"), - contains("prediction"),
-                                                       -"production", -"area"),
+                                                       -contains("anomaly"), - contains("prediction")),
                                         "^",2))  %>%
                            setNames(paste0(sub('_.*', '', names(.)),"2_",sub('.*_', '', names(.)))))
  
-`# Normalise the data (1. calculate mean and sd of original data. 
+# Normalise the data (1. calculate mean and sd of original data. 
 #Normalise detrended climate variable with mean and sd calculated)
 
 MEAN_SD <- Yield_Climate2                                   %>%
-           group_by(sp, method)                            %>% 
-           summarise_all(funs(mean,sd))                    %>%
-           dplyr::select( sp, method, contains("OBS"))    %>%
+           dplyr::select( sp, method, contains("OBS"))      %>%
+           group_by(sp, method)                             %>% 
+           summarise_all(funs(mean,sd),na.rm=TRUE)          %>%
            gather(variable,value,-sp, -method)             %>%
-           mutate(variable  = gsub('_OBS', "",variable),
+           mutate(month     = sub('_.*','',sub('.*OBS_', '', variable)),
+                  variable  = gsub('_OBS', "",variable),
                   type      = sub('.*_', '', variable), 
-                  variable  = sub('_.*', '', variable))     %>%
-           spread(type, value)
+                  variable  = sub('_.*', '', variable))   %>%
+          filter(!method=="")                             %>% 
+          spread(type, value)
   
 list_sp<- unique(Yield_Climate2$sp)
 
 SPREAD <- Yield_Climate2  %>% 
-          dplyr::select(-contains("prediction"), -contains("anomaly"))                                 %>%
-          filter(sp == list_sp[[15]])                                                           %>%
+          dplyr::select(-contains("prediction"), -contains("anomaly"))                          %>%
+          filter(sp == list_sp[[1]])                                                            %>%
           gather(variable, value, -departement,-method, -sp, -year_harvest,-ID, -year2_harvest) %>%
           mutate(type     = gsub(".*_","",variable))                                            %>%
           mutate(variable  = sub('_.*', '', variable))
@@ -81,8 +83,12 @@ SPREAD <- full_join(SPREAD %>% filter(!variable %in% c("production", "area", "yi
 # (mean(TT$value)-10.17)/
 
  CLIMATE_NORM <- SPREAD                                                                         %>%
-      full_join(MEAN_SD %>% filter(sp == list_sp[[15]]), by= c("method", "sp","variable"))      %>%
-   mutate(value_norm = (value - mean)/sd)                                                       %>%
+      full_join(MEAN_SD %>% filter(sp == list_sp[[1]]), by= c("method", "sp","variable"))      
+ %>%
+   mutate(value_norm = (value - mean)/sd)                                                      
+ %>%
+   
+   A<-(CLIMATE_NORM$value - CLIMATE_NORM$mean)/CLIMATE_NORM$sd
                   dplyr::select(-mean, -sd, -value) %>%
                   spread(variable, value_norm)
 

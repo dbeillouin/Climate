@@ -19,29 +19,29 @@ function_lin_AND_loess<- function(TAB){
          loess          = furrr::future_map(data, model_loess,.progress = TRUE),      # loess model
          pred_loess     = furrr::future_map(loess, augment   ,.progress = TRUE))
 
-lin_EACH   <- TAB1  %>%   unnest(pred_lin, .drop = TRUE)             %>%     # Extract results of the lin model
-  select(departement, month, clim_var,year_harvest, Var_mean_gs,.fitted,.resid) %>%     # Choose variable
-  mutate(method="lin_EACH")                                                           # Create a key
+lin <- TAB1  %>%   unnest(pred_lin, .drop = TRUE)             %>%     # Extract results of the lin model
+  dplyr::select(-.sigma, -.hat,-.cooksd, -.std.resid)         %>%     # Choose variable
+  mutate(method="lin")                                                           # Create a key
 
-loess_EACH <- TAB1  %>%   unnest(pred_loess, .drop = TRUE) %>%               # Extract results of the loess model
-  select(departement, clim_var,month, year_harvest,Var_mean_gs, .fitted,  .resid)%>%   # Choose variable
-  mutate(method="loess_EACH")  
+loess <- TAB1  %>%   unnest(pred_loess, .drop = TRUE) %>%               # Extract results of the loess model
+  dplyr::select(-.se.fit)                             %>%              # Choose variable
+mutate(method="loess")  
 
-SELECT2    <- TAB                                                               %>%
+SELECT2    <- TAB                                                                %>%
   summarise(IQR = IQR(Var_mean_gs))                                              %>%
   mutate(ID =paste(clim_var,departement))                                        %>%
   filter(IQR==0)
 
 TAB2      <- subset(TAB, !ID %in% SELECT2$ID) 
-TAB2 %<>%    group_by(clim_var,departement, month)                  %>%
+TAB2 %<>% 
   nest()                                                                         %>%
   mutate(spline         = furrr::future_map(data, model_spline,.progress = TRUE),     # spline model
          pred_spline    = furrr::future_map(spline, augment,.progress = TRUE))
 
-spline_EACH <- TAB2  %>%   unnest(pred_spline, .drop = TRUE)          %>%  # Extract results of the loess model
-  rename( year_harvest = x, Var_mean_gs= y) %>% 
-  select(departement, month, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid) %>%  # Choose variable
-  mutate(method="sline_EACH")
+spline <- TAB2  %>%   unnest(pred_spline, .drop = TRUE)                          %>%  # Extract results of the loess model
+  rename( year_harvest = x, Var_mean_gs= y)                                      %>% 
+  dplyr::select(-w)                                                              %>%  # Choose variable
+  mutate(method="spline")
 
-TAB<-multi_join(list(lin_EACH, loess_EACH,spline_EACH),full_join)
+TAB<-multi_join(list(lin, loess,spline),full_join)
 }
