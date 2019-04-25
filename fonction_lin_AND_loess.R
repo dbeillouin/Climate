@@ -32,6 +32,8 @@ SELECT2    <- TAB                                                               
   mutate(ID =paste(clim_var,departement))                                        %>%
   filter(IQR==0)
 
+TAB %<>% mutate(ID =paste(clim_var,departement))                                      
+  
 TAB2      <- subset(TAB, !ID %in% SELECT2$ID) 
 TAB2 %<>% 
   nest()                                                                         %>%

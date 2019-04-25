@@ -1,4 +1,4 @@
-function_Cross_VALID_ALL_DEP<- function(TAB){
+function_Cross_VALID_ALL_DEP_ALL_MONTH<- function(TAB){
   TAB$year_harvest<-data.frame(scale(TAB$year_harvest))[,1]
   TAB$year_harvestcarre<-data.frame(scale(TAB$year_harvestcarre))[,1]
   
@@ -9,59 +9,66 @@ function_Cross_VALID_ALL_DEP<- function(TAB){
   #rm(list=ls())
   
   # Define models relating crop yield and climate
-  model_Lin      <-function(DAT) {model<-glm (log(yield)  ~ year_harvest +I(year_harvest^2)+ Tmean_1+Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6 + I(Tmean_6)^2 + PR_6 +I(PR_6)^2     ,data=DAT)}
+  model_Lin      <-function(DAT) {model<-glm (log(yield)  ~ year_harvest +I(year_harvest^2)+ Tmean_+ I(Tmean_)^2 + PR_ +I(PR_)^2     ,data=DAT)}
   
   
   model_RF       <-function(DAT) {model<- randomForest(log(yield)~ year_harvest+
-                                                         Tmean_1 +Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6+Tmean_7+Tmean_8+
-                                                         PR_1 +PR_2+PR_3+PR_4+PR_5+PR_6+PR_7+PR_8+
-                                                         ETP_1 +ETP_2+ETP_3+ETP_4+ETP_5+ETP_6+ETP_7+ETP_8+
-                                                         RV_1 +RV_2+RV_3+RV_4+RV_5+RV_6+RV_7+RV_8,
+                                                         Tmean_+
+                                                         PR_+
+                                                         ETP_+
+                                                         RV_,
                                                        ntree=500,mtry=10,data=DAT, proximity=TRUE, oob.prox=TRUE)}
   
   model_PLS      <- function(DAT) {model<-plsr(log(yield) ~ year_harvest+
-                                                 Tmean_1 +Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6+Tmean_7+Tmean_8+
-                                                 PR_1 +PR_2+PR_3+PR_4+PR_5+PR_6+PR_7+PR_8+
-                                                 ETP_1 +ETP_2+ETP_3+ETP_4+ETP_5+ETP_6+ETP_7+ETP_8+
-                                                 RV_1 +RV_2+RV_3+RV_4+RV_5+RV_6+RV_7+RV_8, data = DAT,
+                                                 Tmean_+
+                                                 PR_+
+                                                 ETP_+
+                                                 RV_, data = DAT,
                                                validation = "CV")}
   
   model_lasso   <-function(DAT) {model<- glmnet(log(yield)~ year_harvest+
-                                                  Tmean_1 +Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6+Tmean_7+Tmean_8+
-                                                  PR_1 +PR_2+PR_3+PR_4+PR_5+PR_6+PR_7+PR_8+
-                                                  ETP_1 +ETP_2+ETP_3+ETP_4+ETP_5+ETP_6+ETP_7+ETP_8+
-                                                  RV_1 +RV_2+RV_3+RV_4+RV_5+RV_6+RV_7+RV_8, family="gaussian", alpha=1, data=DAT)}
+                                                  Tmean_+
+                                                  PR_+
+                                                  ETP_+
+                                                  RV_, family="gaussian", alpha=1, data=DAT)}
   
   model_lassocv <-function(DAT) {model<- cv.glmnet(log(yield)~ year_harvest+
-                                                     Tmean_1 +Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6+Tmean_7+Tmean_8+
-                                                     PR_1 +PR_2+PR_3+PR_4+PR_5+PR_6+PR_7+PR_8+
-                                                     ETP_1 +ETP_2+ETP_3+ETP_4+ETP_5+ETP_6+ETP_7+ETP_8+
-                                                     RV_1 +RV_2+RV_3+RV_4+RV_5+RV_6+RV_7+RV_8, family="gaussian", alpha=1, data=DAT)}
+                                                     Tmean_+
+                                                     PR_+
+                                                     ETP_+
+                                                     RV_, family="gaussian", alpha=1, data=DAT)}
   
   
   model_ridge   <-function(DAT) {model<- glmnet(log(yield)~ year_harvest+
-                                                  Tmean_1 +Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6+Tmean_7+Tmean_8+
-                                                  PR_1 +PR_2+PR_3+PR_4+PR_5+PR_6+PR_7+PR_8+
-                                                  ETP_1 +ETP_2+ETP_3+ETP_4+ETP_5+ETP_6+ETP_7+ETP_8+
-                                                  RV_1 +RV_2+RV_3+RV_4+RV_5+RV_6+RV_7+RV_8, family="gaussian", alpha=0, data=DAT)}
+                                                  Tmean_+
+                                                  PR_+
+                                                  ETP_+
+                                                  RV_, family="gaussian", alpha=0, data=DAT)}
   
   model_ridgecv <-function(DAT) {model<- cv.glmnet(log(yield)~ year_harvest+
-                                                     Tmean_1 +Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6+Tmean_7+Tmean_8+
-                                                     PR_1 +PR_2+PR_3+PR_4+PR_5+PR_6+PR_7+PR_8+
-                                                     ETP_1 +ETP_2+ETP_3+ETP_4+ETP_5+ETP_6+ETP_7+ETP_8+
-                                                     RV_1 +RV_2+RV_3+RV_4+RV_5+RV_6+RV_7+RV_8, family="gaussian", alpha=0, data=DAT)}
+                                                     Tmean_+
+                                                     PR_+
+                                                     ETP_+
+                                                     RV_, family="gaussian", alpha=0, data=DAT)}
   
   model_elnet  <-function(DAT) {model<- glmnet(log(yield)~year_harvest+
-                                                 Tmean_1 +Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6+Tmean_7+Tmean_8+
-                                                 PR_1 +PR_2+PR_3+PR_4+PR_5+PR_6+PR_7+PR_8+
-                                                 ETP_1 +ETP_2+ETP_3+ETP_4+ETP_5+ETP_6+ETP_7+ETP_8+
-                                                 RV_1 +RV_2+RV_3+RV_4+RV_5+RV_6+RV_7+RV_8, family="gaussian", alpha=0.5, data=DAT)}
+                                                 Tmean_+
+                                                 PR_+
+                                                 ETP_+
+                                                 RV_, family="gaussian", alpha=0.5, data=DAT)}
   
   model_elnetcv<-function(DAT) {model<- cv.glmnet(log(yield)~ year_harvest+
-                                                    Tmean_1 +Tmean_2+Tmean_3+Tmean_4+Tmean_5+Tmean_6+Tmean_7+Tmean_8+
-                                                    PR_1 +PR_2+PR_3+PR_4+PR_5+PR_6+PR_7+PR_8+
-                                                    ETP_1 +ETP_2+ETP_3+ETP_4+ETP_5+ETP_6+ETP_7+ETP_8+
-                                                    RV_1 +RV_2+RV_3+RV_4+RV_5+RV_6+RV_7+RV_8, family="gaussian", alpha=0.5, data=DAT)}
+                                                    Tmean_+
+                                                    PR_+
+                                                    ETP_+
+                                                    RV_, family="gaussian", alpha=0.5, data=DAT)}
+  
+  
+  model_MCMC  <-function(DAT) {model<-MCMCglmm(log(yield) ~year_harvest+
+                                                 Tmean_+
+                                                 PR_+
+                                                 ETP_+
+                                                 RV_, random = ~us(1+year_harvest), data=DAT, pr=TRUE)}
   
   
   # model_MCMC  <-function(DAT) {model<-MCMCglmm(log(yield) ~
@@ -95,50 +102,12 @@ function_Cross_VALID_ALL_DEP<- function(TAB){
     TAB %<>% filter(!yield==0)
     TAB %<>% dplyr::select(-contains("prediction"), - contains("anomaly"))
     
-    TAB <- TAB   %>% filter(!is.na(Tmean_1))
-    TAB <- TAB   %>% filter(!is.na(Tmean_2))
-    TAB <- TAB   %>% filter(!is.na(Tmean_3))
-    TAB <- TAB   %>% filter(!is.na(Tmean_4))
-    TAB <- TAB   %>% filter(!is.na(Tmean_5))
-    TAB <- TAB   %>% filter(!is.na(Tmean_6))
-    TAB <- TAB   %>% filter(!is.na(Tmean_7))
-    TAB <- TAB   %>% filter(!is.na(Tmean_8))
+    TAB <- TAB   %>% filter(!is.na(Tmean_))
+    TAB <- TAB   %>% filter(!is.na(PR_))
+    TAB <- TAB   %>% filter(!is.na(ETP_))
+    TAB <- TAB   %>% filter(!is.na(RV_))
+    TAB <- TAB   %>% filter(!is.na(PR_))
     
-    TAB <- TAB   %>% filter(!is.na(PR_1))
-    TAB <- TAB   %>% filter(!is.na(PR_2))
-    TAB <- TAB   %>% filter(!is.na(PR_3))
-    TAB <- TAB   %>% filter(!is.na(PR_4))
-    TAB <- TAB   %>% filter(!is.na(PR_5))
-    TAB <- TAB   %>% filter(!is.na(PR_6))
-    TAB <- TAB   %>% filter(!is.na(PR_7))
-    TAB <- TAB   %>% filter(!is.na(PR_8))
-    
-    TAB <- TAB   %>% filter(!is.na(ETP_1))
-    TAB <- TAB   %>% filter(!is.na(ETP_2))
-    TAB <- TAB   %>% filter(!is.na(ETP_3))
-    TAB <- TAB   %>% filter(!is.na(ETP_4))
-    TAB <- TAB   %>% filter(!is.na(ETP_5))
-    TAB <- TAB   %>% filter(!is.na(ETP_6))
-    TAB <- TAB   %>% filter(!is.na(ETP_7))
-    TAB <- TAB   %>% filter(!is.na(ETP_8))
-    
-    TAB <- TAB   %>% filter(!is.na(RV_1))
-    TAB <- TAB   %>% filter(!is.na(RV_2))
-    TAB <- TAB   %>% filter(!is.na(RV_3))
-    TAB <- TAB   %>% filter(!is.na(RV_4))
-    TAB <- TAB   %>% filter(!is.na(RV_5))
-    TAB <- TAB   %>% filter(!is.na(RV_6))
-    TAB <- TAB   %>% filter(!is.na(RV_7))
-    TAB <- TAB   %>% filter(!is.na(RV_8))
-    
-    TAB <- TAB   %>% filter(!is.na(PR_1))
-    TAB <- TAB   %>% filter(!is.na(PR_2))
-    TAB <- TAB   %>% filter(!is.na(PR_3))
-    TAB <- TAB   %>% filter(!is.na(PR_4))
-    TAB <- TAB   %>% filter(!is.na(PR_5))
-    TAB <- TAB   %>% filter(!is.na(PR_6))
-    TAB <- TAB   %>% filter(!is.na(PR_7))
-    TAB <- TAB   %>% filter(!is.na(PR_8))
     
     
     # define calibration and validation databases
@@ -202,7 +171,7 @@ function_Cross_VALID_ALL_DEP<- function(TAB){
       dplyr::select(method,type,pred,departement,year_harvest, yield,model, ROUND)
     
     
-    GRID_2<-expand.grid(unique(CAL$method))
+    GRID_2<-expand.grid(unique(BD1$method))
     for(k in 1 :dim(GRID_2)[1]){
       DB[[k]] <- VAL %>% 
         filter(type=="OBS") %>%

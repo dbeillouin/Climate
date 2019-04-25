@@ -20,19 +20,19 @@ function_lin_AND_loess<- function(TAB){
          pred_loess     = furrr::future_map(loess, augment   ,.progress = TRUE))
 
 lin_EACH   <- TAB1  %>%   unnest(pred_lin, .drop = TRUE)                          %>%     # Extract results of the lin model
-  select(departement, month, clim_var,year_harvest, Var_mean_gs,.fitted,.resid)   %>%     # Choose variable
+  dplyr::select(departement, month, clim_var,year_harvest, Var_mean_gs,.fitted,.resid)   %>%     # Choose variable
   mutate(method="lin_EACH")                                                           # Create a key
 
 loess_EACH <- TAB1  %>%   unnest(pred_loess, .drop = TRUE) %>%               # Extract results of the loess model
-  select(departement, clim_var,month, year_harvest,Var_mean_gs, .fitted,  .resid ) %>%   # Choose variable
+  dplyr::select(departement, clim_var,month, year_harvest,Var_mean_gs, .fitted,  .resid ) %>%   # Choose variable
   mutate(method="loess_EACH")  
 
-SELECT2    <- TAB                                                                  %>%
+select2    <- TAB                                                                  %>%
   summarise(IQR = IQR(Var_mean_gs))                                                %>%
   mutate(ID =paste(clim_var,departement))                                          %>%
   filter(IQR==0)
 
-TAB2      <-TAB %>%  filter(!ID %in% SELECT2$ID)
+TAB2      <-TAB %>%  filter(!ID %in% select2$ID)
 
 TAB2 %<>%    group_by(clim_var,departement, month)                                 %>%
   nest()                                                                           %>%
@@ -43,7 +43,7 @@ TAB2 %<>%    group_by(clim_var,departement, month)                              
 
 spline_EACH <- TAB2  %>%   unnest(pred_spline, .drop = TRUE)                       %>%  # Extract results of the loess model
   rename( year_harvest = x, Var_mean_gs= y) %>% 
-  select(departement, month, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid) %>%  # Choose variable
+  dplyr::select(departement, month, clim_var, year_harvest,Var_mean_gs, .fitted,  .resid) %>%  # Choose variable
   mutate(method="sline_EACH")
 
 TAB<-multi_join(list(lin_EACH, loess_EACH,spline_EACH),full_join)
