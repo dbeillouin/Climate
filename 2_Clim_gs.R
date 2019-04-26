@@ -12,7 +12,7 @@ setwd("~/Documents/CLAND/files_txt/")
 
 #I.1. Climate files
 Climate   <- read.csv("~/Documents/CLAND/Files_txt/data_clim_fr_new.csv", header=FALSE)%>%
-             rename(year_cal      =V1,  clim_var      =V2,       departement   =V3,
+             dplyr::rename(year_cal      =V1,  clim_var      =V2,       departement   =V3,
                     month         =V4,  value         =V5,       unit          =V6) 
 
 Climate_Spring_crops<-Climate %>% 
@@ -28,7 +28,7 @@ Climate_Winter_crops<-Climate %>%
 wne_tot_gs <- Climate_Spring_crops %>% filter(month %in% c(3:10)) %>% mutate(sp ="wne_tot_gs")
 bar_spr_gs <- Climate_Spring_crops %>% filter(month %in% c(1:8))  %>% mutate(sp ="bar_spr_gs")
 oat_spr_gs <- Climate_Spring_crops %>% filter(month %in% c(1:8))  %>% mutate(sp ="oat_spr_gs")
-wht_spr_gs <- Climate_Spring_crops %>% filter(month %in% c(2:10)) %>% mutate(sp ="wht_spr_gs")
+wht_spr_gs <- Climate_Spring_crops %>% filter(month %in% c(2:8)) %>% mutate(sp ="wht_spr_gs")
 mai_tot_gs <- Climate_Spring_crops %>% filter(month %in% c(4:11)) %>% mutate(sp ="mai_tot_gs")
 pot_tot_gs <- Climate_Spring_crops %>% filter(month %in% c(4:10)) %>% mutate(sp ="pot_tot_gs")
 sug_tot_gs <- Climate_Spring_crops %>% filter(month %in% c(4:11)) %>% mutate(sp ="sug_tot_gs")
